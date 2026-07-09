@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: baseu-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: baseu
+      MYSQL_USER: baseu
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-baseupassword}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - baseu-network
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    
+  redis:
+    image: redis:7-alpine
+    container_name: baseu-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - baseu-network
+    command: redis-server --appendonly yes
+      
+  app:
+    build: .
+    container_name: baseu-server
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: baseu
+      DB_USERNAME: baseu
+      DB_PASSWORD: ${MYSQL_PASSWORD:-baseupassword}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET:-your-production-secret-key-change-this}
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - baseu-network
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  redis-data:
+
+networks:
+  baseu-network:
+    driver: bridge
+
