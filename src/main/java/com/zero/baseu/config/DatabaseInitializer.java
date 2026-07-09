@@ -1,5 +1,11 @@
 package com.zero.baseu.config;
 
+import com.zero.baseu.entity.User;
+import com.zero.baseu.entity.UserAccount;
+import com.zero.baseu.mapper.UserAccountMapper;
+import com.zero.baseu.mapper.UserMapper;
+import com.zero.baseu.util.PasswordUtil;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -17,6 +23,7 @@ import java.sql.Statement;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class DatabaseInitializer implements CommandLineRunner {
     
     @Value("${spring.datasource.url}")
@@ -27,6 +34,10 @@ public class DatabaseInitializer implements CommandLineRunner {
     
     @Value("${spring.datasource.password}")
     private String password;
+    
+    private final UserMapper userMapper;
+    private final UserAccountMapper userAccountMapper;
+    private final PasswordUtil passwordUtil;
     
     @Override
     public void run(String... args) {
@@ -71,9 +82,82 @@ public class DatabaseInitializer implements CommandLineRunner {
                 rs.close();
             }
             
+            // 检查并创建管理员账号
+            createAdminUser();
+            
         } catch (Exception e) {
             log.error("数据库初始化失败", e);
             log.warn("请确保MySQL服务已启动，并且用户 {} 有创建数据库的权限", username);
+        }
+    }
+    
+    /**
+     * 创建管理员账号
+     */
+    private void createAdminUser() {
+        try {
+            // 检查管理员账号是否已存在
+            User existingAdmin = userMapper.selectById(1L);
+            
+            // 固定盐值和密码，确保密码始终是 admin123
+            String fixedSalt = "admin_salt_2024";
+            String password = "admin123";
+            String passwordHash = passwordUtil.hashPassword(password, fixedSalt);
+            
+            if (existingAdmin != null) {
+                // 更新现有管理员账号的密码
+                log.info("管理员账号已存在，更新密码");
+                existingAdmin.setSalt(fixedSalt);
+                existingAdmin.setPasswordHash(passwordHash);
+                userMapper.updateById(existingAdmin);
+                
+                // 确保账户存在
+                UserAccount existingAccount = userAccountMapper.selectById(1L);
+                if (existingAccount == null) {
+                    UserAccount account = new UserAccount();
+                    account.setId(1L);
+                    account.setUserId(1L);
+                    account.setBalance(new java.math.BigDecimal("100000.00"));
+                    account.setFrozenAmount(new java.math.BigDecimal("0.00"));
+                    account.setTotalRecharge(new java.math.BigDecimal("0.00"));
+                    account.setTotalWithdraw(new java.math.BigDecimal("0.00"));
+                    account.setVersion(0);
+                    userAccountMapper.insert(account);
+                }
+            } else {
+                // 创建新的管理员账号
+                User admin = new User();
+                admin.setId(1L);
+                admin.setUsername("admin");
+                admin.setEmail("admin@baseu.com");
+                admin.setPhone("13800138000");
+                admin.setPasswordHash(passwordHash);
+                admin.setSalt(fixedSalt);
+                admin.setCountryCode("CN");
+                admin.setDialCode("+86");
+                admin.setStatus(1);
+                
+                userMapper.insert(admin);
+                
+                // 创建管理员账户
+                UserAccount account = new UserAccount();
+                account.setId(1L);
+                account.setUserId(1L);
+                account.setBalance(new java.math.BigDecimal("100000.00"));
+                account.setFrozenAmount(new java.math.BigDecimal("0.00"));
+                account.setTotalRecharge(new java.math.BigDecimal("0.00"));
+                account.setTotalWithdraw(new java.math.BigDecimal("0.00"));
+                account.setVersion(0);
+                
+                userAccountMapper.insert(account);
+            }
+            
+            log.info("✅ 管理员账号配置完成！");
+            log.info("手机号: 13800138000");
+            log.info("密码: admin123");
+            
+        } catch (Exception e) {
+            log.error("配置管理员账号失败", e);
         }
     }
     
