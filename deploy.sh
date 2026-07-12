@@ -56,11 +56,28 @@ install_java() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
         OS=$ID
+        VERSION_ID=$VERSION_ID
     fi
     
     case $OS in
         centos|rhel)
-            yum install -y java-17-openjdk java-17-openjdk-devel
+            # CentOS 7/8 使用EPEL或手动安装
+            if [ "$VERSION_ID" = "7" ]; then
+                # CentOS 7 使用Oracle JDK或从其他源安装
+                log_info "CentOS 7，使用手动安装方式..."
+                cd /tmp
+                wget --no-check-certificate -O jdk17.tar.gz https://download.oracle.com/java/17/latest/jdk-17_linux-x64_bin.tar.gz || \
+                wget --no-check-certificate -O jdk17.tar.gz https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.8%2B101/OpenJDK17U-jdk_x64_linux_hotspot_17.0.8_101.tar.gz
+                tar -xzf jdk17.tar.gz
+                JDK_DIR=$(ls -d jdk-*)
+                mv $JDK_DIR /opt/java17
+                rm -f jdk17.tar.gz
+            else
+                # CentOS 8+ 尝试使用dnf
+                dnf install -y java-17-openjdk java-17-openjdk-devel 2>/dev/null || \
+                yum install -y java-17-openjdk java-17-openjdk-devel 2>/dev/null || \
+                (cd /tmp && wget --no-check-certificate -O jdk17.tar.gz https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.8%2B101/OpenJDK17U-jdk_x64_linux_hotspot_17.0.8_101.tar.gz && tar -xzf jdk17.tar.gz && mv jdk-*/ /opt/java17 && rm -f jdk17.tar.gz)
+            fi
             ;;
         ubuntu|debian)
             apt update
@@ -73,9 +90,17 @@ install_java() {
     esac
     
     # 设置JAVA_HOME
-    export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+    if [ -d "/opt/java17" ]; then
+        export JAVA_HOME=/opt/java17
+    else
+        export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+    fi
+    
     echo "export JAVA_HOME=$JAVA_HOME" >> ~/.bashrc
     echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> ~/.bashrc
+    
+    # 立即生效
+    export PATH=$JAVA_HOME/bin:$PATH
     
     log_info "Java安装完成"
 }
