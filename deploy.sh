@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# BaseU 一键部署脚本
+# BaseU 一键部署脚本 (简化稳定版)
 # 功能：自动检查环境、处理冲突、部署应用
 
-set -e  # 遇到错误立即退出
+set +e  # 不在错误时立即退出，手动处理错误
 
 # 颜色定义
 RED='\033[0;31m'
@@ -37,312 +37,167 @@ check_command() {
     return 0
 }
 
-# 安装Java
-install_java() {
-    log_step "检查Java环境..."
+# 环境检查（简化版）
+check_environment() {
+    log_step "检查运行环境..."
     
-    # 检查是否设置了SKIP_JAVA_INSTALL环境变量
-    if [ "$SKIP_JAVA_INSTALL" = "true" ]; then
-        log_info "跳过Java安装 (SKIP_JAVA_INSTALL=true)"
-        if check_command java; then
-            export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
-            log_info "使用现有Java: $JAVA_HOME"
-        fi
-        return 0
-    fi
-    
+    # 检查Java
     if check_command java; then
-        # 获取Java版本信息
-        JAVA_FULL_VERSION=$(java -version 2>&1 | head -n 1)
-        log_info "检测到Java: $JAVA_FULL_VERSION"
-        
-        # 尝试多种方式提取版本号
-        JAVA_VERSION=$(java -version 2>&1 | sed -n 's/.* version "\(.*\)".*/\1/p' | cut -d'.' -f1)
-        
-        # 如果提取失败，尝试其他方式
-        if [ -z "$JAVA_VERSION" ]; then
-            JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | cut -d'.' -f1)
-        fi
-        
-        # 如果还是失败，直接使用1.8作为默认值
-        if [ -z "$JAVA_VERSION" ]; then
-            JAVA_VERSION=1
-        fi
-        
-        log_info "提取的Java主版本: $JAVA_VERSION"
-        
-        # 检查版本是否满足要求
-        if [ "$JAVA_VERSION" -ge 17 ] 2>/dev/null; then
-            log_info "Java版本满足要求 (>= 17)，跳过安装"
-            export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
-            return 0
-        else
-            log_warn "Java版本过低 (当前: $JAVA_VERSION, 需要: 17+)"
-            log_warn "如果服务器已有Java 17，请设置环境变量: export SKIP_JAVA_INSTALL=true"
-            log_info "将尝试升级Java..."
-        fi
-    else
-        log_info "未检测到Java，开始安装..."
-    fi
-    
-    log_info "正在安装Java 17..."
-    
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        OS=$ID
-        VERSION_ID=$VERSION_ID
-    fi
-    
-    case $OS in
-        centos|rhel)
-            # CentOS 7/8 使用EPEL或手动安装
-            if [ "$VERSION_ID" = "7" ]; then
-                # CentOS 7 使用Oracle JDK或从其他源安装
-                log_info "CentOS 7，使用手动安装方式..."
-                cd /tmp
-                wget --no-check-certificate -O jdk17.tar.gz https://download.oracle.com/java/17/latest/jdk-17_linux-x64_bin.tar.gz || \
-                wget --no-check-certificate -O jdk17.tar.gz https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.8%2B101/OpenJDK17U-jdk_x64_linux_hotspot_17.0.8_101.tar.gz
-                tar -xzf jdk17.tar.gz
-                JDK_DIR=$(ls -d jdk-*)
-                mv $JDK_DIR /opt/java17
-                rm -f jdk17.tar.gz
-            else
-                # CentOS 8+ 尝试使用dnf
-                dnf install -y java-17-openjdk java-17-openjdk-devel 2>/dev/null || \
-                yum install -y java-17-openjdk java-17-openjdk-devel 2>/dev/null || \
-                (cd /tmp && wget --no-check-certificate -O jdk17.tar.gz https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.8%2B101/OpenJDK17U-jdk_x64_linux_hotspot_17.0.8_101.tar.gz && tar -xzf jdk17.tar.gz && mv jdk-*/ /opt/java17 && rm -f jdk17.tar.gz)
-            fi
-            ;;
-        ubuntu|debian)
-            apt update
-            apt install -y openjdk-17-jdk
-            ;;
-        *)
-            log_error "不支持的操作系统: $OS"
-            exit 1
-            ;;
-    esac
-    
-    # 设置JAVA_HOME
-    if [ -d "/opt/java17" ]; then
-        export JAVA_HOME=/opt/java17
-    else
+        JAVA_VERSION=$(java -version 2>&1 | head -n 1)
+        log_info "Java: $JAVA_VERSION"
         export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+    else
+        log_error "未检测到Java，请先安装Java 17+"
+        log_info "CentOS: yum install java-17-openjdk"
+        log_info "Ubuntu: apt install openjdk-17-jdk"
+        exit 1
     fi
     
-    echo "export JAVA_HOME=$JAVA_HOME" >> ~/.bashrc
-    echo "export PATH=\$JAVA_HOME/bin:\$PATH" >> ~/.bashrc
-    
-    # 立即生效
-    export PATH=$JAVA_HOME/bin:$PATH
-    
-    log_info "Java安装完成"
-}
-
-# 安装Maven
-install_maven() {
-    log_step "检查Maven环境..."
-    
+    # 检查Maven
     if check_command mvn; then
-        MVN_VERSION=$(mvn -version | head -n 1 | awk '{print $3}')
-        log_info "Maven已安装，版本：$MVN_VERSION"
-        return 0
+        MVN_VERSION=$(mvn -version | head -n 1)
+        log_info "Maven: $MVN_VERSION"
+    else
+        log_error "未检测到Maven，请先安装Maven"
+        log_info "下载: https://maven.apache.org/download.cgi"
+        exit 1
     fi
     
-    log_info "正在安装Maven..."
-    
-    MAVEN_VERSION="3.9.5"
-    MAVEN_URL="https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz"
-    
-    cd /tmp
-    wget -O maven.tar.gz $MAVEN_URL
-    tar -xzf maven.tar.gz
-    mv apache-maven-${MAVEN_VERSION} /opt/maven
-    
-    # 设置环境变量
-    export M2_HOME=/opt/maven
-    export PATH=$M2_HOME/bin:$PATH
-    echo "export M2_HOME=/opt/maven" >> ~/.bashrc
-    echo "export PATH=\$M2_HOME/bin:\$PATH" >> ~/.bashrc
-    
-    rm -f maven.tar.gz
-    
-    log_info "Maven安装完成"
-}
-
-# 安装Node.js
-install_nodejs() {
-    log_step "检查Node.js环境..."
-    
+    # 检查Node.js
     if check_command node; then
         NODE_VERSION=$(node -v)
-        log_info "Node.js已安装，版本：$NODE_VERSION"
-        return 0
+        log_info "Node.js: $NODE_VERSION"
+    else
+        log_error "未检测到Node.js，请先安装Node.js"
+        log_info "CentOS: yum install nodejs npm"
+        log_info "Ubuntu: apt install nodejs npm"
+        exit 1
     fi
     
-    log_info "正在安装Node.js..."
-    
-    # 使用nvm安装
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-    export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-    nvm install 18
-    nvm use 18
-    
-    echo "export NVM_DIR=\"$HOME/.nvm\"" >> ~/.bashrc
-    echo "[ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\"" >> ~/.bashrc
-    
-    log_info "Node.js安装完成"
-}
-
-# 安装Git
-install_git() {
-    log_step "检查Git环境..."
-    
+    # 检查Git
     if check_command git; then
         GIT_VERSION=$(git --version)
-        log_info "Git已安装，版本：$GIT_VERSION"
-        return 0
+        log_info "Git: $GIT_VERSION"
+    else
+        log_error "未检测到Git，请先安装Git"
+        log_info "CentOS: yum install git"
+        log_info "Ubuntu: apt install git"
+        exit 1
     fi
     
-    log_info "正在安装Git..."
-    
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        OS=$ID
-    fi
-    
-    case $OS in
-        centos|rhel)
-            yum install -y git
-            ;;
-        ubuntu|debian)
-            apt update
-            apt install -y git
-            ;;
-        *)
-            log_error "不支持的操作系统: $OS"
-            exit 1
-            ;;
-    esac
-    
-    log_info "Git安装完成"
+    log_info "环境检查完成"
 }
 
 # 处理Git冲突
 handle_git_conflict() {
-    log_warn "检测到Git冲突，正在处理..."
+    log_warn "检测到Git冲突，使用远程版本覆盖本地..."
     
-    # 查找冲突文件
-    CONFLICT_FILES=$(git diff --name-only --diff-filter=U)
+    # 放弃本地修改
+    git reset --hard origin/main
+    git clean -fd
     
-    if [ -z "$CONFLICT_FILES" ]; then
-        log_info "没有冲突文件"
-        return 0
-    fi
-    
-    log_warn "冲突文件："
-    echo "$CONFLICT_FILES"
-    
-    # 策略：使用远程版本覆盖本地
-    log_info "策略：使用远程版本覆盖本地修改"
-    
-    for file in $CONFLICT_FILES; do
-        git checkout --theirs "$file"
-        git add "$file"
-        log_info "已解决冲突：$file"
-    done
-    
-    git commit -m "解决Git冲突：使用远程版本"
-    log_info "冲突解决完成"
+    log_info "冲突已解决"
 }
 
 # Git拉取代码
 pull_code() {
     log_step "拉取最新代码..."
     
-    cd /www/wwwroot/BaseUServer
+    cd /www/wwwroot/BaseUServer || exit 1
     
     # 检查是否有未提交的修改
     if [ -n "$(git status --porcelain)" ]; then
-        log_warn "检测到未提交的修改"
-        git stash push -m "部署前自动保存"
+        log_warn "检测到未提交的修改，暂存本地修改..."
+        git stash push -m "部署前自动保存" || true
     fi
     
     # 拉取代码
     git fetch origin
     
-    # 检查是否有冲突
+    # 检查是否需要更新
     LOCAL=$(git rev-parse @)
     REMOTE=$(git rev-parse @{u})
-    BASE=$(git merge-base @ @{u})
     
-    if [ $LOCAL = $REMOTE ]; then
+    if [ "$LOCAL" = "$REMOTE" ]; then
         log_info "代码已是最新"
         return 0
-    elif [ $LOCAL = $BASE ]; then
-        log_info "需要拉取更新"
-        git pull origin main || handle_git_conflict
-    elif [ $REMOTE = $BASE ]; then
-        log_warn "本地有未推送的提交"
-    else
-        log_warn "存在分歧，需要处理"
-        handle_git_conflict
     fi
     
-    log_info "代码拉取完成"
+    # 尝试拉取
+    if git pull origin main; then
+        log_info "代码拉取完成"
+    else
+        log_warn "拉取失败，处理冲突..."
+        handle_git_conflict
+    fi
 }
 
 # 构建后端
 build_backend() {
     log_step "构建后端应用..."
     
-    cd /www/wwwroot/BaseUServer
+    cd /www/wwwroot/BaseUServer || exit 1
     
-    # 检查Maven配置
     if [ ! -f "pom.xml" ]; then
         log_error "未找到pom.xml文件"
         exit 1
     fi
     
     # 清理并打包
-    mvn clean package -DskipTests -U
+    if mvn clean package -DskipTests -U; then
+        log_info "后端构建完成"
+    else
+        log_error "后端构建失败"
+        exit 1
+    fi
     
     if [ ! -f "target/baseu-server-1.0.0.jar" ]; then
         log_error "构建失败，未找到jar文件"
         exit 1
     fi
-    
-    log_info "后端构建完成"
 }
 
 # 构建前端
 build_frontend() {
     log_step "构建前端应用..."
     
-    cd /www/wwwroot/BaseUServer/baseu-admin
+    cd /www/wwwroot/BaseUServer/baseu-admin || exit 1
     
-    # 检查package.json
     if [ ! -f "package.json" ]; then
         log_error "未找到package.json文件"
         exit 1
     fi
     
+    # 清理npm缓存（解决npmrc冲突）
+    npm cache clean --force 2>/dev/null || true
+    
+    # 删除node_modules重新安装
+    if [ -d "node_modules" ]; then
+        log_info "清理旧的依赖..."
+        rm -rf node_modules
+    fi
+    
     # 安装依赖
-    if [ ! -d "node_modules" ]; then
-        log_info "安装前端依赖..."
-        npm install
+    log_info "安装前端依赖..."
+    if npm install --registry=https://registry.npmmirror.com; then
+        log_info "依赖安装完成"
+    else
+        log_error "依赖安装失败"
+        exit 1
     fi
     
     # 构建
-    npm run build
-    
-    if [ ! -d "dist" ]; then
+    if npm run build; then
+        log_info "前端构建完成"
+    else
         log_error "前端构建失败"
         exit 1
     fi
     
-    log_info "前端构建完成"
+    if [ ! -d "dist" ]; then
+        log_error "前端构建失败，未找到dist目录"
+        exit 1
+    fi
 }
 
 # 重启后端服务
@@ -354,22 +209,25 @@ restart_backend() {
     
     if [ -n "$PID" ]; then
         log_info "停止旧进程 (PID: $PID)"
-        kill -15 $PID
+        kill -15 $PID 2>/dev/null || true
         sleep 5
         
         # 强制杀死
-        if ps -p $PID > /dev/null; then
-            kill -9 $PID
+        if ps -p $PID > /dev/null 2>&1; then
+            kill -9 $PID 2>/dev/null || true
             log_warn "强制停止进程"
         fi
     fi
+    
+    # 创建日志目录
+    mkdir -p /www/wwwroot/BaseUServer/logs
     
     # 启动新进程
     cd /www/wwwroot/BaseUServer
     nohup java -jar target/baseu-server-1.0.0.jar --spring.profiles.active=prod > logs/app.log 2>&1 &
     
     # 等待启动
-    sleep 10
+    sleep 15
     
     # 检查进程
     NEW_PID=$(ps aux | grep 'baseu-server-1.0.0.jar' | grep -v grep | awk '{print $2}')
@@ -388,21 +246,15 @@ reload_nginx() {
     log_step "重载Nginx..."
     
     if command -v nginx &> /dev/null; then
-        nginx -t && nginx -s reload
-        log_info "Nginx重载成功"
+        if nginx -t; then
+            nginx -s reload
+            log_info "Nginx重载成功"
+        else
+            log_warn "Nginx配置检查失败，跳过重载"
+        fi
     else
         log_warn "Nginx未安装，跳过重载"
     fi
-}
-
-# 数据库迁移
-migrate_database() {
-    log_step "执行数据库迁移..."
-    
-    cd /www/wwwroot/BaseUServer
-    
-    # Flyway会自动执行迁移
-    log_info "数据库迁移将在应用启动时自动执行"
 }
 
 # 创建备份
@@ -427,7 +279,7 @@ create_backup() {
     fi
     
     # 清理30天前的备份
-    find $BACKUP_DIR -type f -mtime +30 -delete
+    find $BACKUP_DIR -type f -mtime +30 -delete 2>/dev/null || true
     find $BACKUP_DIR -type d -mtime +30 -exec rm -rf {} + 2>/dev/null || true
     
     log_info "备份完成"
@@ -456,6 +308,7 @@ rollback() {
     reload_nginx
     
     log_error "回滚完成"
+    exit 1
 }
 
 # 主函数
@@ -465,10 +318,7 @@ main() {
     log_info "========================================"
     
     # 检查环境
-    install_git
-    install_java
-    install_maven
-    install_nodejs
+    check_environment
     
     # 创建备份
     create_backup
