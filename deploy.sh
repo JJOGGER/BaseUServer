@@ -92,19 +92,40 @@ check_environment() {
     # 检查Node.js
     if check_command node; then
         NODE_VERSION=$(node -v)
-        log_info "Node.js: $NODE_VERSION"
+        NODE_MAJOR_VERSION=$(echo $NODE_VERSION | cut -d'v' -f2 | cut -d'.' -f1)
+        log_info "Node.js: $NODE_VERSION (主版本: $NODE_MAJOR_VERSION)"
+        
+        # 检查Node.js版本是否满足要求
+        if [ "$NODE_MAJOR_VERSION" -lt 16 ]; then
+            log_error "Node.js版本过低 (当前: $NODE_VERSION, 需要: >=16.0.0)"
+            log_info "Vite 5.x需要Node.js 16+"
+            log_info "请升级Node.js或运行: ./install-centos7-env.sh"
+            exit 1
+        fi
     elif [ -d "/www/server/nodejs" ]; then
         log_info "检测到宝塔面板安装的Node.js"
         export NODE_HOME=/www/server/nodejs
         export PATH=$NODE_HOME/bin:$PATH
         NODE_VERSION=$(node -v)
-        log_info "Node.js: $NODE_VERSION"
+        NODE_MAJOR_VERSION=$(echo $NODE_VERSION | cut -d'v' -f2 | cut -d'.' -f1)
+        log_info "Node.js: $NODE_VERSION (主版本: $NODE_MAJOR_VERSION)"
+        
+        if [ "$NODE_MAJOR_VERSION" -lt 16 ]; then
+            log_error "Node.js版本过低 (当前: $NODE_VERSION, 需要: >=16.0.0)"
+            exit 1
+        fi
     elif [ -d "/opt/nodejs" ]; then
         log_info "检测到手动安装的Node.js"
         export NODE_HOME=/opt/nodejs
         export PATH=$NODE_HOME/bin:$PATH
         NODE_VERSION=$(node -v)
-        log_info "Node.js: $NODE_VERSION"
+        NODE_MAJOR_VERSION=$(echo $NODE_VERSION | cut -d'v' -f2 | cut -d'.' -f1)
+        log_info "Node.js: $NODE_VERSION (主版本: $NODE_MAJOR_VERSION)"
+        
+        if [ "$NODE_MAJOR_VERSION" -lt 16 ]; then
+            log_error "Node.js版本过低 (当前: $NODE_VERSION, 需要: >=16.0.0)"
+            exit 1
+        fi
     else
         log_error "未检测到Node.js，请先安装Node.js"
         log_info "CentOS: yum install nodejs npm"
