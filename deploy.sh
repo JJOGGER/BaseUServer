@@ -42,13 +42,35 @@ install_java() {
     log_step "检查Java环境..."
     
     if check_command java; then
-        JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | cut -d'.' -f1)
-        if [ "$JAVA_VERSION" -ge 17 ]; then
-            log_info "Java已安装，版本：$(java -version 2>&1 | head -n 1)"
+        # 获取Java版本信息
+        JAVA_FULL_VERSION=$(java -version 2>&1 | head -n 1)
+        log_info "检测到Java: $JAVA_FULL_VERSION"
+        
+        # 尝试多种方式提取版本号
+        JAVA_VERSION=$(java -version 2>&1 | sed -n 's/.* version "\(.*\)".*/\1/p' | cut -d'.' -f1)
+        
+        # 如果提取失败，尝试其他方式
+        if [ -z "$JAVA_VERSION" ]; then
+            JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | cut -d'.' -f1)
+        fi
+        
+        # 如果还是失败，直接使用1.8作为默认值
+        if [ -z "$JAVA_VERSION" ]; then
+            JAVA_VERSION=1
+        fi
+        
+        log_info "提取的Java主版本: $JAVA_VERSION"
+        
+        # 检查版本是否满足要求
+        if [ "$JAVA_VERSION" -ge 17 ] 2>/dev/null; then
+            log_info "Java版本满足要求 (>= 17)，跳过安装"
             return 0
         else
-            log_warn "Java版本过低，需要Java 17+"
+            log_warn "Java版本过低 (当前: $JAVA_VERSION, 需要: 17+)"
+            log_info "将尝试升级Java..."
         fi
+    else
+        log_info "未检测到Java，开始安装..."
     fi
     
     log_info "正在安装Java 17..."
