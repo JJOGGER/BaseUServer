@@ -41,6 +41,16 @@ check_command() {
 install_java() {
     log_step "检查Java环境..."
     
+    # 检查是否设置了SKIP_JAVA_INSTALL环境变量
+    if [ "$SKIP_JAVA_INSTALL" = "true" ]; then
+        log_info "跳过Java安装 (SKIP_JAVA_INSTALL=true)"
+        if check_command java; then
+            export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+            log_info "使用现有Java: $JAVA_HOME"
+        fi
+        return 0
+    fi
+    
     if check_command java; then
         # 获取Java版本信息
         JAVA_FULL_VERSION=$(java -version 2>&1 | head -n 1)
@@ -64,9 +74,11 @@ install_java() {
         # 检查版本是否满足要求
         if [ "$JAVA_VERSION" -ge 17 ] 2>/dev/null; then
             log_info "Java版本满足要求 (>= 17)，跳过安装"
+            export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
             return 0
         else
             log_warn "Java版本过低 (当前: $JAVA_VERSION, 需要: 17+)"
+            log_warn "如果服务器已有Java 17，请设置环境变量: export SKIP_JAVA_INSTALL=true"
             log_info "将尝试升级Java..."
         fi
     else
