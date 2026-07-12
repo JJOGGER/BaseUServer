@@ -2,9 +2,9 @@
   <div class="users-page">
     <div class="page-header">
       <h2>用户管理</h2>
-      <el-button type="primary" @click="handleRefresh">
-        <el-icon><Refresh /></el-icon>
-        刷新
+      <el-button type="primary" @click="handleCreate">
+        <el-icon><Plus /></el-icon>
+        新增用户
       </el-button>
     </div>
 
@@ -16,22 +16,28 @@
         style="width: 300px"
         @input="handleSearch"
       />
+      <el-button @click="handleRefresh">
+        <el-icon><Refresh /></el-icon>
+        刷新
+      </el-button>
     </div>
 
     <el-table :data="users" v-loading="loading" style="width: 100%">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="phone" label="手机号" width="140" />
       <el-table-column prop="username" label="用户名" width="120" />
-      <el-table-column prop="balance" label="余额" width="120">
+      <el-table-column prop="email" label="邮箱" width="180" />
+      <el-table-column prop="status" label="状态" width="80">
         <template #default="{ row }">
-          <span class="balance-amount">¥{{ row.balance?.toLocaleString() || 0 }}</span>
+          <el-tag :type="row.status === 1 ? 'success' : 'danger'">
+            {{ row.status === 1 ? '正常' : '禁用' }}
+          </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="country" label="国家" width="100" />
       <el-table-column prop="createTime" label="注册时间" width="180" />
-      <el-table-column label="操作" width="150">
+      <el-table-column label="操作" width="200">
         <template #default="{ row }">
-          <el-button type="primary" size="small" @click="handleView(row)">查看</el-button>
+          <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
           <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -48,31 +54,80 @@
         @current-change="handleCurrentChange"
       />
     </div>
+
+    <!-- 新增/编辑用户对话框 -->
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px">
+      <el-form :model="userForm" :rules="formRules" ref="formRef" label-width="80px">
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="userForm.username" placeholder="请输入用户名" />
+        </el-form-item>
+        <el-form-item label="手机号" prop="phone">
+          <el-input v-model="userForm.phone" placeholder="请输入手机号" />
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="userForm.email" placeholder="请输入邮箱" />
+        </el-form-item>
+        <el-form-item label="国家代码" prop="countryCode">
+          <el-input v-model="userForm.countryCode" placeholder="如: CN" />
+        </el-form-item>
+        <el-form-item label="区号" prop="dialCode">
+          <el-input v-model="userForm.dialCode" placeholder="如: +86" />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-switch v-model="userForm.status" :active-value="1" :inactive-value="0" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { userApi } from '@/api/user'
+import { userApi, User } from '@/api/user'
 
 const loading = ref(false)
+const submitLoading = ref(false)
 const searchQuery = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const dialogVisible = ref(false)
+const isEdit = ref(false)
+const formRef = ref()
 
-const users = ref([])
+const users = ref<User[]>([])
+
+const userForm = reactive<User>({
+  username: '',
+  phone: '',
+  email: '',
+  countryCode: 'CN',
+  dialCode: '+86',
+  status: 1
+})
+
+const formRules = {
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }]
+}
+
+const dialogTitle = computed(() => isEdit.value ? '编辑用户' : '新增用户')
 
 const loadUsers = async () => {
   loading.value = true
   try {
-    // 注意：当前后端没有用户列表API，这里需要添加
-    // 暂时使用模拟数据
-    users.value = [
-      { id: 1, phone: '13800138000', username: 'admin', balance: 100000, country: 'CN', createTime: '2024-01-15 10:30' }
-    ]
-    total.value = users.value.length
+    const data = await userApi.getUserList({ 
+      page: currentPage.value, 
+      size: pageSize.value,
+      phone: searchQuery.value 
+    })
+    users.value = data.records
+    total.value = data.total
   } catch (error) {
     ElMessage.error('加载用户列表失败')
   } finally {
@@ -81,6 +136,7 @@ const loadUsers = async () => {
 }
 
 const handleSearch = () => {
+  currentPage.value = 1
   loadUsers()
 }
 
@@ -88,16 +144,47 @@ const handleRefresh = () => {
   loadUsers()
 }
 
-const handleView = async (row: any) => {
+const handleCreate = () => {
+  isEdit.value = false
+  Object.assign(userForm, {
+    username: '',
+    phone: '',
+    email: '',
+    countryCode: 'CN',
+    dialCode: '+86',
+    status: 1
+  })
+  dialogVisible.value = true
+}
+
+const handleEdit = (row: User) => {
+  isEdit.value = true
+  Object.assign(userForm, row)
+  dialogVisible.value = true
+}
+
+const handleSubmit = async () => {
+  await formRef.value.validate()
+  submitLoading.value = true
+  
   try {
-    const userInfo = await userApi.getUserInfo()
-    ElMessage.info(`用户信息: ${userInfo.username}, 余额: ¥${userInfo.balance}`)
+    if (isEdit.value) {
+      await userApi.updateUser(userForm)
+      ElMessage.success('用户更新成功')
+    } else {
+      await userApi.createUser(userForm)
+      ElMessage.success('用户创建成功')
+    }
+    dialogVisible.value = false
+    loadUsers()
   } catch (error) {
-    ElMessage.error('获取用户信息失败')
+    ElMessage.error(isEdit.value ? '用户更新失败' : '用户创建失败')
+  } finally {
+    submitLoading.value = false
   }
 }
 
-const handleDelete = (row: any) => {
+const handleDelete = (row: User) => {
   ElMessageBox.confirm(
     `确定要删除用户 ${row.username} 吗？`,
     '确认删除',
@@ -106,9 +193,14 @@ const handleDelete = (row: any) => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
-    ElMessage.success('删除成功')
-    loadUsers()
+  ).then(async () => {
+    try {
+      await userApi.deleteUser(row.id!)
+      ElMessage.success('删除成功')
+      loadUsers()
+    } catch (error) {
+      ElMessage.error('删除失败')
+    }
   }).catch(() => {
     ElMessage.info('已取消删除')
   })
@@ -163,18 +255,20 @@ onMounted(() => {
 }
 
 :deep(.el-table) {
-  background: transparent;
+  background: white;
+  border: 1px solid var(--border-color);
 }
 
 :deep(.el-table th) {
   background: var(--bg-tertiary);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   border-color: var(--border-color);
 }
 
 :deep(.el-table td) {
   border-color: var(--border-color);
   color: var(--text-primary);
+  background: white;
 }
 
 :deep(.el-table tr:hover > td) {
@@ -188,7 +282,7 @@ onMounted(() => {
 }
 
 :deep(.el-pagination .el-pager li) {
-  background: var(--bg-secondary);
+  background: white;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
 }

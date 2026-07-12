@@ -41,9 +41,13 @@ public class SecurityConfig {
                         // 允许访问充值回调接口
                         .requestMatchers("/api/recharge/callback/**").permitAll()
                         // 允许访问Swagger文档
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        // 允许访问根路径和健康检查
-                        .requestMatchers("/", "/actuator/**").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                        // 允许访问根路径
+                        .requestMatchers("/").permitAll()
+                        // 允许管理员接口
+                        .requestMatchers("/api/user/admin/**").permitAll()
+                        .requestMatchers("/api/transaction/admin/**").permitAll()
+                        .requestMatchers("/api/recharge/admin/**").permitAll()
                         // 其他所有请求需要认证
                         .anyRequest().authenticated()
                 )

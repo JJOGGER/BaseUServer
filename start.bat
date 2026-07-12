@@ -13,6 +13,12 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
+
+REM 自动设置JAVA_HOME
+for /f "tokens=*" %%i in ('java -XshowSettings:properties -version 2^>^&1 ^| findstr "java.home"') do set JAVA_HOME_LINE=%%i
+for /f "tokens=2 delims==" %%i in ("%JAVA_HOME_LINE%") do set JAVA_HOME=%%i
+set JAVA_HOME=%JAVA_HOME: =%
+echo 自动设置JAVA_HOME: %JAVA_HOME%
 echo.
 
 REM 设置环境变量（默认为dev）

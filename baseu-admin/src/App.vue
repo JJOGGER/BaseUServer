@@ -23,16 +23,16 @@
   --danger-color: #ef4444;
   --info-color: #3b82f6;
   
-  --bg-primary: #1e293b;
-  --bg-secondary: #334155;
-  --bg-tertiary: #475569;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
   
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
   --text-tertiary: #94a3b8;
   
-  --border-color: #475569;
-  --border-hover: #64748b;
+  --border-color: #e2e8f0;
+  --border-hover: #cbd5e1;
 }
 
 #app {

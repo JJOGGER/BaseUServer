@@ -277,18 +277,20 @@ onMounted(() => {
 }
 
 :deep(.el-table) {
-  background: transparent;
+  background: white;
+  border: 1px solid var(--border-color);
 }
 
 :deep(.el-table th) {
   background: var(--bg-tertiary);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   border-color: var(--border-color);
 }
 
 :deep(.el-table td) {
   border-color: var(--border-color);
   color: var(--text-primary);
+  background: white;
 }
 
 :deep(.el-table tr:hover > td) {

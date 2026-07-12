@@ -2,9 +2,9 @@
   <div class="recharge-page">
     <div class="page-header">
       <h2>充值管理</h2>
-      <el-button type="primary" @click="handleRefresh">
-        <el-icon><Refresh /></el-icon>
-        刷新
+      <el-button type="primary" @click="handleCreate">
+        <el-icon><Plus /></el-icon>
+        新增充值
       </el-button>
     </div>
 
@@ -16,15 +16,10 @@
         <el-option label="已取消" :value="2" />
         <el-option label="已失败" :value="3" />
       </el-select>
-      <el-date-picker
-        v-model="dateRange"
-        type="daterange"
-        range-separator="至"
-        start-placeholder="开始日期"
-        end-placeholder="结束日期"
-        style="width: 300px"
-        @change="handleFilter"
-      />
+      <el-button @click="handleRefresh">
+        <el-icon><Refresh /></el-icon>
+        刷新
+      </el-button>
     </div>
 
     <el-table :data="recharges" v-loading="loading" style="width: 100%">
@@ -35,9 +30,9 @@
           <span class="amount">¥{{ row.amount.toLocaleString() }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="channel" label="支付渠道" width="100">
+      <el-table-column prop="paymentChannel" label="支付渠道" width="120">
         <template #default="{ row }">
-          <el-tag>{{ row.channel }}</el-tag>
+          <el-tag>{{ row.paymentChannel || row.paymentMethod || '-' }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="status" label="状态" width="100">
@@ -49,17 +44,10 @@
       </el-table-column>
       <el-table-column prop="orderNo" label="订单号" width="180" />
       <el-table-column prop="createTime" label="创建时间" width="180" />
-      <el-table-column label="操作" width="150">
+      <el-table-column label="操作" width="200">
         <template #default="{ row }">
-          <el-button type="primary" size="small" @click="handleView(row)">详情</el-button>
-          <el-button 
-            v-if="row.status === 0" 
-            type="danger" 
-            size="small" 
-            @click="handleCancel(row)"
-          >
-            取消
-          </el-button>
+          <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -75,22 +63,76 @@
         @current-change="handleCurrentChange"
       />
     </div>
+
+    <!-- 新增/编辑充值对话框 -->
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px">
+      <el-form :model="rechargeForm" :rules="formRules" ref="formRef" label-width="100px">
+        <el-form-item label="用户ID" prop="userId">
+          <el-input v-model="rechargeForm.userId" placeholder="请输入用户ID" />
+        </el-form-item>
+        <el-form-item label="充值金额" prop="amount">
+          <el-input v-model="rechargeForm.amount" placeholder="请输入充值金额" />
+        </el-form-item>
+        <el-form-item label="支付渠道" prop="paymentChannel">
+          <el-input v-model="rechargeForm.paymentChannel" placeholder="如: alipay" />
+        </el-form-item>
+        <el-form-item label="支付方式" prop="paymentMethod">
+          <el-input v-model="rechargeForm.paymentMethod" placeholder="如: 支付宝" />
+        </el-form-item>
+        <el-form-item label="订单状态" prop="status">
+          <el-select v-model="rechargeForm.status" placeholder="请选择状态" style="width: 100%">
+            <el-option label="待支付" :value="0" />
+            <el-option label="已支付" :value="1" />
+            <el-option label="已取消" :value="2" />
+            <el-option label="已失败" :value="3" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="订单号" prop="orderNo">
+          <el-input v-model="rechargeForm.orderNo" placeholder="请输入订单号" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { rechargeApi } from '@/api/recharge'
+import { rechargeApi, Recharge } from '@/api/recharge'
 
 const loading = ref(false)
+const submitLoading = ref(false)
 const statusFilter = ref<number | ''>('')
 const dateRange = ref<[Date, Date] | null>(null)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const dialogVisible = ref(false)
+const isEdit = ref(false)
+const formRef = ref()
 
-const recharges = ref([])
+const recharges = ref<Recharge[]>([])
+
+const rechargeForm = reactive<Recharge>({
+  userId: 0,
+  amount: 0,
+  paymentChannel: '',
+  paymentMethod: '',
+  status: 0,
+  orderNo: ''
+})
+
+const formRules = {
+  userId: [{ required: true, message: '请输入用户ID', trigger: 'blur' }],
+  amount: [{ required: true, message: '请输入充值金额', trigger: 'blur' }],
+  status: [{ required: true, message: '请选择订单状态', trigger: 'change' }]
+}
+
+const dialogTitle = computed(() => isEdit.value ? '编辑充值' : '新增充值')
 
 const getStatusType = (status: number) => {
   const types: Record<number, any> = {
@@ -118,15 +160,10 @@ const loadRecharges = async () => {
     const params: any = { page: currentPage.value, size: pageSize.value }
     if (statusFilter.value) params.status = statusFilter.value
     
-    const data = await rechargeApi.getRechargeList(params)
+    const data = await rechargeApi.getAllRecharges(params)
     recharges.value = data.records.map(r => ({
-      id: r.id,
-      userId: r.userId,
-      amount: r.amount,
-      channel: r.paymentChannel || r.paymentMethod,
-      status: r.status,
-      orderNo: r.orderNo,
-      createTime: new Date(r.createTime).toLocaleString('zh-CN')
+      ...r,
+      createTime: r.createTime ? new Date(r.createTime).toLocaleString('zh-CN') : ''
     }))
     total.value = data.total
   } catch (error) {
@@ -145,24 +182,65 @@ const handleRefresh = () => {
   loadRecharges()
 }
 
-const handleView = (row: any) => {
-  ElMessage.info(`订单详情: ${row.orderNo}, 金额: ¥${row.amount}`)
+const handleCreate = () => {
+  isEdit.value = false
+  Object.assign(rechargeForm, {
+    userId: 0,
+    amount: 0,
+    paymentChannel: '',
+    paymentMethod: '',
+    status: 0,
+    orderNo: ''
+  })
+  dialogVisible.value = true
 }
 
-const handleCancel = (row: any) => {
+const handleEdit = (row: Recharge) => {
+  isEdit.value = true
+  Object.assign(rechargeForm, row)
+  dialogVisible.value = true
+}
+
+const handleSubmit = async () => {
+  await formRef.value.validate()
+  submitLoading.value = true
+  
+  try {
+    if (isEdit.value) {
+      await rechargeApi.updateRecharge(rechargeForm)
+      ElMessage.success('充值记录更新成功')
+    } else {
+      await rechargeApi.createRechargeRecord(rechargeForm)
+      ElMessage.success('充值记录创建成功')
+    }
+    dialogVisible.value = false
+    loadRecharges()
+  } catch (error) {
+    ElMessage.error(isEdit.value ? '充值记录更新失败' : '充值记录创建失败')
+  } finally {
+    submitLoading.value = false
+  }
+}
+
+const handleDelete = (row: Recharge) => {
   ElMessageBox.confirm(
-    `确定要取消订单 ${row.orderNo} 吗？`,
-    '确认取消',
+    `确定要删除充值记录 ID=${row.id} 吗？`,
+    '确认删除',
     {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
-    ElMessage.success('订单已取消')
-    loadRecharges()
+  ).then(async () => {
+    try {
+      await rechargeApi.deleteRecharge(row.id!)
+      ElMessage.success('删除成功')
+      loadRecharges()
+    } catch (error) {
+      ElMessage.error('删除失败')
+    }
   }).catch(() => {
-    ElMessage.info('已取消操作')
+    ElMessage.info('已取消删除')
   })
 }
 
@@ -217,18 +295,20 @@ onMounted(() => {
 }
 
 :deep(.el-table) {
-  background: transparent;
+  background: white;
+  border: 1px solid var(--border-color);
 }
 
 :deep(.el-table th) {
   background: var(--bg-tertiary);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   border-color: var(--border-color);
 }
 
 :deep(.el-table td) {
   border-color: var(--border-color);
   color: var(--text-primary);
+  background: white;
 }
 
 :deep(.el-table tr:hover > td) {
@@ -242,7 +322,7 @@ onMounted(() => {
 }
 
 :deep(.el-pagination .el-pager li) {
-  background: var(--bg-secondary);
+  background: white;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
 }
