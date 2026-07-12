@@ -41,15 +41,28 @@ check_command() {
 check_environment() {
     log_step "检查运行环境..."
     
-    # 检查Java
+    # 检查Java（支持多个常见路径）
     if check_command java; then
         JAVA_VERSION=$(java -version 2>&1 | head -n 1)
         log_info "Java: $JAVA_VERSION"
         export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+    elif [ -d "/www/server/java/jdk-17.0.8" ]; then
+        log_info "检测到宝塔面板安装的Java 17"
+        export JAVA_HOME=/www/server/java/jdk-17.0.8
+        export PATH=$JAVA_HOME/bin:$PATH
+        JAVA_VERSION=$(java -version 2>&1 | head -n 1)
+        log_info "Java: $JAVA_VERSION"
+    elif [ -d "/opt/java17" ]; then
+        log_info "检测到手动安装的Java 17"
+        export JAVA_HOME=/opt/java17
+        export PATH=$JAVA_HOME/bin:$PATH
+        JAVA_VERSION=$(java -version 2>&1 | head -n 1)
+        log_info "Java: $JAVA_VERSION"
     else
         log_error "未检测到Java，请先安装Java 17+"
         log_info "CentOS: yum install java-17-openjdk"
         log_info "Ubuntu: apt install openjdk-17-jdk"
+        log_info "或者运行: ./install-centos7-env.sh"
         exit 1
     fi
     
@@ -57,9 +70,22 @@ check_environment() {
     if check_command mvn; then
         MVN_VERSION=$(mvn -version | head -n 1)
         log_info "Maven: $MVN_VERSION"
+    elif [ -d "/www/server/maven" ]; then
+        log_info "检测到宝塔面板安装的Maven"
+        export M2_HOME=/www/server/maven
+        export PATH=$M2_HOME/bin:$PATH
+        MVN_VERSION=$(mvn -version | head -n 1)
+        log_info "Maven: $MVN_VERSION"
+    elif [ -d "/opt/maven" ]; then
+        log_info "检测到手动安装的Maven"
+        export M2_HOME=/opt/maven
+        export PATH=$M2_HOME/bin:$PATH
+        MVN_VERSION=$(mvn -version | head -n 1)
+        log_info "Maven: $MVN_VERSION"
     else
         log_error "未检测到Maven，请先安装Maven"
         log_info "下载: https://maven.apache.org/download.cgi"
+        log_info "或者运行: ./install-centos7-env.sh"
         exit 1
     fi
     
@@ -67,10 +93,23 @@ check_environment() {
     if check_command node; then
         NODE_VERSION=$(node -v)
         log_info "Node.js: $NODE_VERSION"
+    elif [ -d "/www/server/nodejs" ]; then
+        log_info "检测到宝塔面板安装的Node.js"
+        export NODE_HOME=/www/server/nodejs
+        export PATH=$NODE_HOME/bin:$PATH
+        NODE_VERSION=$(node -v)
+        log_info "Node.js: $NODE_VERSION"
+    elif [ -d "/opt/nodejs" ]; then
+        log_info "检测到手动安装的Node.js"
+        export NODE_HOME=/opt/nodejs
+        export PATH=$NODE_HOME/bin:$PATH
+        NODE_VERSION=$(node -v)
+        log_info "Node.js: $NODE_VERSION"
     else
         log_error "未检测到Node.js，请先安装Node.js"
         log_info "CentOS: yum install nodejs npm"
         log_info "Ubuntu: apt install nodejs npm"
+        log_info "或者运行: ./install-centos7-env.sh"
         exit 1
     fi
     
