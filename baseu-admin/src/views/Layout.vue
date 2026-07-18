@@ -27,6 +27,10 @@
             <el-icon><Wallet /></el-icon>
             <span>充值管理</span>
           </el-menu-item>
+          <el-menu-item index="/mnemonic">
+            <el-icon><Key /></el-icon>
+            <span>助记词管理</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
       <el-container>
@@ -64,7 +68,8 @@ const pageTitle = computed(() => {
     '/': '仪表盘',
     '/users': '用户管理',
     '/transactions': '交易记录',
-    '/recharge': '充值管理'
+    '/recharge': '充值管理',
+    '/mnemonic': '助记词管理'
   }
   return titles[route.path] || '仪表盘'
 })
