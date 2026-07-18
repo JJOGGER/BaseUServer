@@ -105,8 +105,10 @@ public class DatabaseInitializer implements CommandLineRunner {
             String passwordHash = passwordUtil.hashPassword(password, fixedSalt);
             
             if (existingAdmin != null) {
-                // 更新现有管理员账号的密码
-                log.info("管理员账号已存在，更新密码");
+                // 更新现有管理员账号为邮箱登录
+                log.info("管理员账号已存在，更新为邮箱登录");
+                existingAdmin.setUsername("admin@baseu.com");
+                existingAdmin.setEmail("admin@baseu.com");
                 existingAdmin.setSalt(fixedSalt);
                 existingAdmin.setPasswordHash(passwordHash);
                 userMapper.updateById(existingAdmin);
@@ -125,10 +127,10 @@ public class DatabaseInitializer implements CommandLineRunner {
                     userAccountMapper.insert(account);
                 }
             } else {
-                // 创建新的管理员账号
+                // 创建新的管理员账号（邮箱登录）
                 User admin = new User();
                 admin.setId(1L);
-                admin.setUsername("admin");
+                admin.setUsername("admin@baseu.com");
                 admin.setEmail("admin@baseu.com");
                 admin.setPhone("13800138000");
                 admin.setPasswordHash(passwordHash);
@@ -153,7 +155,7 @@ public class DatabaseInitializer implements CommandLineRunner {
             }
             
             log.info("✅ 管理员账号配置完成！");
-            log.info("手机号: 13800138000");
+            log.info("邮箱: admin@baseu.com");
             log.info("密码: admin123");
             
         } catch (Exception e) {
