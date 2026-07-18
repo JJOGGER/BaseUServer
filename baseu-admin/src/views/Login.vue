@@ -6,8 +6,8 @@
         <p>数字资产管理平台</p>
       </div>
       <el-form :model="loginForm" :rules="rules" ref="formRef" class="login-form">
-        <el-form-item prop="email">
-          <el-input v-model="loginForm.email" placeholder="邮箱" prefix-icon="Message" size="large" />
+        <el-form-item prop="account">
+          <el-input v-model="loginForm.account" placeholder="邮箱" prefix-icon="Message" size="large" />
         </el-form-item>
         <el-form-item prop="password">
           <el-input v-model="loginForm.password" type="password" placeholder="密码" prefix-icon="Lock" size="large" />
@@ -39,12 +39,12 @@ const formRef = ref()
 const loading = ref(false)
 
 const loginForm = reactive({
-  email: '',
+  account: '',
   password: ''
 })
 
 const rules = {
-  email: [
+  account: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
   ],

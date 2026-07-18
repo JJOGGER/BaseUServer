@@ -1,7 +1,7 @@
 import request from './request'
 
 export interface LoginRequest {
-  phone: string
+  account: string
   password: string
 }
 

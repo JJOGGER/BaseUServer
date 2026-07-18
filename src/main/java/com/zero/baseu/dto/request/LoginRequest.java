@@ -18,6 +18,11 @@ public class LoginRequest {
     private String account;
     
     /**
+     * 邮箱
+     */
+    private String email;
+    
+    /**
      * 密码
      */
     @NotBlank(message = "密码不能为空")
