@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/mnemonic")
+@RequestMapping("/api/mnemonic")
 @RequiredArgsConstructor
 public class MnemonicController {
     
