@@ -15,9 +15,9 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
 
-# JWT配置
+# JWT配置（HS512 要求密钥至少 64 字节，过短会导致登录 500）
 jwt:
-  secret: ${JWT_SECRET:baseu-prod-jwt-secret-change-me-8.211.144.162-aB3dEf9hIjKl2nOp}
+  secret: ${JWT_SECRET:baseu-prod-jwt-secret-change-me-8.211.144.162-aB3dEf9hIjKl2nOpQrStUvWxYz012345}
   expiration: ${JWT_EXPIRATION:7200000}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
