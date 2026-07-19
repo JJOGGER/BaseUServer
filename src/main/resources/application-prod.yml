@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:8081}
 
 spring:
   # 数据源配置（宝塔本机 MySQL，可用环境变量覆盖）

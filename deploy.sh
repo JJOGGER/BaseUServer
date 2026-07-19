@@ -278,6 +278,8 @@ build_frontend() {
 # 重启后端服务
 restart_backend() {
     log_step "重启后端服务..."
+    SERVER_PORT=${SERVER_PORT:-8081}
+    export SERVER_PORT
     
     # 查找并停止旧 jar 进程
     PIDS=$(ps aux | grep 'baseu-server-1.0.0.jar' | grep -v grep | awk '{print $2}')
@@ -288,8 +290,8 @@ restart_backend() {
         kill -9 $PIDS 2>/dev/null || true
     fi
 
-    # 释放 8080（宝塔面板启动的 java 往往不带 jar 名，上面杀不到）
-    free_port_8080
+    # 释放应用端口（宝塔面板启动的 java 往往不带 jar 名，上面杀不到）
+    free_port "$SERVER_PORT"
     
     # 启动新进程（输出到 logs/app.log，宝塔面板也可看项目日志）
     cd /www/wwwroot/BaseUServer
@@ -307,8 +309,8 @@ restart_backend() {
         log_error "启动失败：未找到 Java 17+，请在宝塔安装 JDK 17"
         exit 1
     fi
-    log_info "启动使用 Java: $JAVA_HOME"
-    nohup "$JAVA_HOME/bin/java" -jar target/baseu-server-1.0.0.jar --spring.profiles.active=prod > logs/app.log 2>&1 &
+    log_info "启动使用 Java: $JAVA_HOME ，端口: $SERVER_PORT"
+    nohup "$JAVA_HOME/bin/java" -jar target/baseu-server-1.0.0.jar --spring.profiles.active=prod --server.port=$SERVER_PORT > logs/app.log 2>&1 &
     
     # 等待启动
     sleep 15
@@ -317,7 +319,7 @@ restart_backend() {
     NEW_PID=$(ps aux | grep 'baseu-server-1.0.0.jar' | grep -v grep | awk '{print $2}')
     
     if [ -n "$NEW_PID" ]; then
-        log_info "后端服务启动成功 (PID: $NEW_PID)"
+        log_info "后端服务启动成功 (PID: $NEW_PID, port=$SERVER_PORT)"
         log_info "查看日志: tail -f /www/wwwroot/BaseUServer/logs/app.log"
     else
         log_error "后端服务启动失败，最近日志如下："
@@ -326,31 +328,32 @@ restart_backend() {
     fi
 }
 
-# 释放 8080 端口
-free_port_8080() {
-    log_info "检查并释放 8080 端口..."
+# 释放指定端口
+free_port() {
+    local port=${1:-8081}
+    log_info "检查并释放 ${port} 端口..."
     local pids=""
     if command -v lsof >/dev/null 2>&1; then
-        pids=$(lsof -t -i:8080 2>/dev/null || true)
+        pids=$(lsof -t -i:${port} 2>/dev/null || true)
     fi
     if [ -z "$pids" ] && command -v fuser >/dev/null 2>&1; then
-        pids=$(fuser 8080/tcp 2>/dev/null || true)
+        pids=$(fuser ${port}/tcp 2>/dev/null || true)
     fi
     if [ -z "$pids" ] && command -v ss >/dev/null 2>&1; then
-        pids=$(ss -lptn 'sport = :8080' 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
+        pids=$(ss -lptn "sport = :${port}" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
     fi
     if [ -z "$pids" ] && command -v netstat >/dev/null 2>&1; then
-        pids=$(netstat -tlnp 2>/dev/null | awk '/:8080 / {print $7}' | cut -d'/' -f1 | grep -E '^[0-9]+$' | sort -u)
+        pids=$(netstat -tlnp 2>/dev/null | awk -v p=":${port} " '$0 ~ p {print $7}' | cut -d'/' -f1 | grep -E '^[0-9]+$' | sort -u)
     fi
 
     if [ -n "$pids" ]; then
-        log_warn "8080 被占用，结束进程: $pids"
+        log_warn "${port} 被占用，结束进程: $pids"
         kill -15 $pids 2>/dev/null || true
         sleep 2
         kill -9 $pids 2>/dev/null || true
         sleep 1
     else
-        log_info "8080 端口空闲"
+        log_info "${port} 端口空闲"
     fi
 }
 
