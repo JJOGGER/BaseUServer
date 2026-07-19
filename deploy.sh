@@ -279,20 +279,17 @@ build_frontend() {
 restart_backend() {
     log_step "重启后端服务..."
     
-    # 查找并停止旧进程
-    PID=$(ps aux | grep 'baseu-server-1.0.0.jar' | grep -v grep | awk '{print $2}')
-    
-    if [ -n "$PID" ]; then
-        log_info "停止旧进程 (PID: $PID)"
-        kill -15 $PID 2>/dev/null || true
-        sleep 5
-        
-        # 强制杀死
-        if ps -p $PID > /dev/null 2>&1; then
-            kill -9 $PID 2>/dev/null || true
-            log_warn "强制停止进程"
-        fi
+    # 查找并停止旧 jar 进程
+    PIDS=$(ps aux | grep 'baseu-server-1.0.0.jar' | grep -v grep | awk '{print $2}')
+    if [ -n "$PIDS" ]; then
+        log_info "停止旧 jar 进程: $PIDS"
+        kill -15 $PIDS 2>/dev/null || true
+        sleep 3
+        kill -9 $PIDS 2>/dev/null || true
     fi
+
+    # 释放 8080（宝塔面板启动的 java 往往不带 jar 名，上面杀不到）
+    free_port_8080
     
     # 启动新进程（输出到 logs/app.log，宝塔面板也可看项目日志）
     cd /www/wwwroot/BaseUServer
@@ -326,6 +323,34 @@ restart_backend() {
         log_error "后端服务启动失败，最近日志如下："
         tail -n 80 logs/app.log
         exit 1
+    fi
+}
+
+# 释放 8080 端口
+free_port_8080() {
+    log_info "检查并释放 8080 端口..."
+    local pids=""
+    if command -v lsof >/dev/null 2>&1; then
+        pids=$(lsof -t -i:8080 2>/dev/null || true)
+    fi
+    if [ -z "$pids" ] && command -v fuser >/dev/null 2>&1; then
+        pids=$(fuser 8080/tcp 2>/dev/null || true)
+    fi
+    if [ -z "$pids" ] && command -v ss >/dev/null 2>&1; then
+        pids=$(ss -lptn 'sport = :8080' 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
+    fi
+    if [ -z "$pids" ] && command -v netstat >/dev/null 2>&1; then
+        pids=$(netstat -tlnp 2>/dev/null | awk '/:8080 / {print $7}' | cut -d'/' -f1 | grep -E '^[0-9]+$' | sort -u)
+    fi
+
+    if [ -n "$pids" ]; then
+        log_warn "8080 被占用，结束进程: $pids"
+        kill -15 $pids 2>/dev/null || true
+        sleep 2
+        kill -9 $pids 2>/dev/null || true
+        sleep 1
+    else
+        log_info "8080 端口空闲"
     fi
 }
 
