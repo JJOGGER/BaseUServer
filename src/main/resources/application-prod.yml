@@ -2,11 +2,11 @@ server:
   port: ${SERVER_PORT:8080}
 
 spring:
-  # 数据源配置
+  # 数据源配置（宝塔本机 MySQL，可用环境变量覆盖）
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:baseu}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=true&allowPublicKeyRetrieval=true
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD}
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:baseu}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:baseu}
+    password: ${DB_PASSWORD:4XAEeNCPMb24A57A}
   
   # Redis配置
   data:
@@ -17,7 +17,7 @@ spring:
 
 # JWT配置
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:baseu-prod-jwt-secret-change-me-8.211.144.162-aB3dEf9hIjKl2nOp}
   expiration: ${JWT_EXPIRATION:7200000}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
@@ -38,4 +38,3 @@ logging:
 app:
   environment: production
   name: BaseU Server (生产环境)
-
