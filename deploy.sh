@@ -42,114 +42,118 @@ check_command() {
     return 0
 }
 
-# 环境检查（简化版）
+# 是否为 Java 17+
+is_java17_plus() {
+    local ver
+    ver=$(java -version 2>&1 | head -n 1)
+    echo "$ver" | grep -Eq '"1[7-9]\.|\"2[0-9]\.'
+}
+
+# 环境检查：优先宝塔 JDK 17，避免系统 Java 7 抢占 PATH
 check_environment() {
     log_step "检查运行环境..."
-    
-    # 检查Java（支持多个常见路径）
-    if check_command java; then
-        JAVA_VERSION=$(java -version 2>&1 | head -n 1)
-        log_info "Java: $JAVA_VERSION"
-        export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
-    elif [ -d "/www/server/java/jdk-17.0.8" ]; then
-        log_info "检测到宝塔面板安装的Java 17"
-        export JAVA_HOME=/www/server/java/jdk-17.0.8
-        export PATH=$JAVA_HOME/bin:$PATH
-        JAVA_VERSION=$(java -version 2>&1 | head -n 1)
-        log_info "Java: $JAVA_VERSION"
-    elif [ -d "/opt/java17" ]; then
-        log_info "检测到手动安装的Java 17"
+
+    JAVA_OK=0
+    # 1) 优先扫描宝塔 / 常见 JDK 17 安装路径
+    if [ -d "/www/server/java" ]; then
+        for home in /www/server/java/jdk-17* /www/server/java/jdk-21*; do
+            if [ -x "$home/bin/java" ]; then
+                export JAVA_HOME="$home"
+                export PATH="$JAVA_HOME/bin:$PATH"
+                log_info "使用宝塔 Java: $JAVA_HOME"
+                JAVA_OK=1
+                break
+            fi
+        done
+    fi
+    if [ "$JAVA_OK" -eq 0 ] && [ -x "/opt/java17/bin/java" ]; then
         export JAVA_HOME=/opt/java17
         export PATH=$JAVA_HOME/bin:$PATH
-        JAVA_VERSION=$(java -version 2>&1 | head -n 1)
-        log_info "Java: $JAVA_VERSION"
-    else
-        log_error "未检测到Java，请先安装Java 17+"
-        log_info "CentOS: yum install java-17-openjdk"
-        log_info "Ubuntu: apt install openjdk-17-jdk"
-        log_info "或者运行: ./install-centos7-env.sh"
+        log_info "使用 /opt/java17"
+        JAVA_OK=1
+    fi
+    # 2) 仅当 PATH 中的 java 已是 17+ 才采用
+    if [ "$JAVA_OK" -eq 0 ] && check_command java && is_java17_plus; then
+        export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+        export PATH=$JAVA_HOME/bin:$PATH
+        log_info "使用 PATH 中的 Java 17+: $JAVA_HOME"
+        JAVA_OK=1
+    fi
+    if [ "$JAVA_OK" -eq 0 ]; then
+        if check_command java; then
+            log_error "当前 Java 版本过低: $(java -version 2>&1 | head -n 1)"
+        fi
+        log_error "未找到 Java 17+，请在宝塔安装 JDK 17 后再部署"
+        log_info "常见路径: /www/server/java/jdk-17.x.x"
         exit 1
     fi
-    
-    # 检查Maven
-    if check_command mvn; then
-        MVN_VERSION=$(mvn -version | head -n 1)
-        log_info "Maven: $MVN_VERSION"
-    elif [ -d "/www/server/maven" ]; then
-        log_info "检测到宝塔面板安装的Maven"
-        export M2_HOME=/www/server/maven
-        export PATH=$M2_HOME/bin:$PATH
-        MVN_VERSION=$(mvn -version | head -n 1)
-        log_info "Maven: $MVN_VERSION"
-    elif [ -d "/opt/maven" ]; then
-        log_info "检测到手动安装的Maven"
-        export M2_HOME=/opt/maven
-        export PATH=$M2_HOME/bin:$PATH
-        MVN_VERSION=$(mvn -version | head -n 1)
-        log_info "Maven: $MVN_VERSION"
-    else
-        log_error "未检测到Maven，请先安装Maven"
-        log_info "下载: https://maven.apache.org/download.cgi"
-        log_info "或者运行: ./install-centos7-env.sh"
+    log_info "Java: $(java -version 2>&1 | head -n 1)"
+
+    # Maven：优先宝塔，并确保用上面的 JAVA_HOME 跑
+    MVN_OK=0
+    for home in /www/server/maven /opt/maven /usr/share/maven; do
+        if [ -x "$home/bin/mvn" ]; then
+            export M2_HOME="$home"
+            export MAVEN_HOME="$home"
+            export PATH="$M2_HOME/bin:$PATH"
+            log_info "使用 Maven: $M2_HOME"
+            MVN_OK=1
+            break
+        fi
+    done
+    if [ "$MVN_OK" -eq 0 ] && check_command mvn; then
+        log_info "使用 PATH 中的 Maven"
+        MVN_OK=1
+    fi
+    if [ "$MVN_OK" -eq 0 ]; then
+        log_error "未检测到 Maven，请先安装"
         exit 1
     fi
-    
-    # 检查Node.js
-    if check_command node; then
-        NODE_VERSION=$(node -v)
-        NODE_MAJOR_VERSION=$(echo $NODE_VERSION | cut -d'v' -f2 | cut -d'.' -f1)
-        log_info "Node.js: $NODE_VERSION (主版本: $NODE_MAJOR_VERSION)"
-        
-        # 检查Node.js版本是否满足要求
-        if [ "$NODE_MAJOR_VERSION" -lt 16 ]; then
-            log_error "Node.js版本过低 (当前: $NODE_VERSION, 需要: >=16.0.0)"
-            log_info "Vite 5.x需要Node.js 16+"
-            log_info "请升级Node.js或运行: ./install-centos7-env.sh"
-            exit 1
-        fi
-    elif [ -d "/www/server/nodejs" ]; then
-        log_info "检测到宝塔面板安装的Node.js"
-        export NODE_HOME=/www/server/nodejs
-        export PATH=$NODE_HOME/bin:$PATH
-        NODE_VERSION=$(node -v)
-        NODE_MAJOR_VERSION=$(echo $NODE_VERSION | cut -d'v' -f2 | cut -d'.' -f1)
-        log_info "Node.js: $NODE_VERSION (主版本: $NODE_MAJOR_VERSION)"
-        
-        if [ "$NODE_MAJOR_VERSION" -lt 16 ]; then
-            log_error "Node.js版本过低 (当前: $NODE_VERSION, 需要: >=16.0.0)"
-            exit 1
-        fi
-    elif [ -d "/opt/nodejs" ]; then
-        log_info "检测到手动安装的Node.js"
-        export NODE_HOME=/opt/nodejs
-        export PATH=$NODE_HOME/bin:$PATH
-        NODE_VERSION=$(node -v)
-        NODE_MAJOR_VERSION=$(echo $NODE_VERSION | cut -d'v' -f2 | cut -d'.' -f1)
-        log_info "Node.js: $NODE_VERSION (主版本: $NODE_MAJOR_VERSION)"
-        
-        if [ "$NODE_MAJOR_VERSION" -lt 16 ]; then
-            log_error "Node.js版本过低 (当前: $NODE_VERSION, 需要: >=16.0.0)"
-            exit 1
-        fi
-    else
-        log_error "未检测到Node.js，请先安装Node.js"
-        log_info "CentOS: yum install nodejs npm"
-        log_info "Ubuntu: apt install nodejs npm"
-        log_info "或者运行: ./install-centos7-env.sh"
+    # 用 JAVA_HOME 验证 mvn 可运行
+    if ! mvn -version >/dev/null 2>&1; then
+        log_error "Maven 无法运行（通常仍是 Java 版本不对）"
+        log_info "JAVA_HOME=$JAVA_HOME"
+        java -version
         exit 1
     fi
-    
-    # 检查Git
+    log_info "Maven: $(mvn -version 2>/dev/null | head -n 1)"
+
+    # Node.js：CentOS7 常见 GLIBC 过旧，不可用时允许跳过前端构建
+    SKIP_FRONTEND=0
+    export SKIP_FRONTEND
+    NODE_BIN=""
+    for home in /www/server/nodejs /opt/nodejs; do
+        if [ -x "$home/bin/node" ]; then
+            export NODE_HOME="$home"
+            export PATH="$NODE_HOME/bin:$PATH"
+            NODE_BIN="$home/bin/node"
+            break
+        fi
+    done
+    if [ -z "$NODE_BIN" ] && check_command node; then
+        NODE_BIN=$(command -v node)
+    fi
+    if [ -n "$NODE_BIN" ]; then
+        if NODE_VERSION=$($NODE_BIN -v 2>/dev/null); then
+            log_info "Node.js: $NODE_VERSION"
+        else
+            log_warn "Node.js 无法运行（可能是 CentOS7 GLIBC 过旧），将跳过前端构建"
+            SKIP_FRONTEND=1
+        fi
+    else
+        log_warn "未检测到 Node.js，将跳过前端构建"
+        SKIP_FRONTEND=1
+    fi
+
     if check_command git; then
-        GIT_VERSION=$(git --version)
-        log_info "Git: $GIT_VERSION"
+        log_info "Git: $(git --version)"
     else
-        log_error "未检测到Git，请先安装Git"
-        log_info "CentOS: yum install git"
-        log_info "Ubuntu: apt install git"
+        log_error "未检测到 Git"
         exit 1
     fi
-    
+
+    mkdir -p /www/wwwroot/BaseUServer/logs
+    chmod 777 start.sh deploy.sh install-centos7-env.sh 2>/dev/null || true
     log_info "环境检查完成"
 }
 
@@ -170,20 +174,20 @@ pull_code() {
     
     cd /www/wwwroot/BaseUServer || exit 1
     
-    # 检查是否有未提交的修改
+    # 检查是否有未提交的修改（兼容旧版 git，不用 stash push / @）
     if [ -n "$(git status --porcelain)" ]; then
         log_warn "检测到未提交的修改，暂存本地修改..."
-        git stash push -m "部署前自动保存" || true
+        git stash save "部署前自动保存" || true
     fi
     
     # 拉取代码
     git fetch origin
     
     # 检查是否需要更新
-    LOCAL=$(git rev-parse @)
-    REMOTE=$(git rev-parse @{u})
+    LOCAL=$(git rev-parse HEAD)
+    REMOTE=$(git rev-parse origin/main 2>/dev/null || git rev-parse @{u} 2>/dev/null)
     
-    if [ "$LOCAL" = "$REMOTE" ]; then
+    if [ -n "$REMOTE" ] && [ "$LOCAL" = "$REMOTE" ]; then
         log_info "代码已是最新"
         return 0
     fi
@@ -195,6 +199,8 @@ pull_code() {
         log_warn "拉取失败，处理冲突..."
         handle_git_conflict
     fi
+
+    chmod 777 start.sh deploy.sh install-centos7-env.sh 2>/dev/null || true
 }
 
 # 构建后端
@@ -224,6 +230,11 @@ build_backend() {
 
 # 构建前端
 build_frontend() {
+    if [ "${SKIP_FRONTEND:-0}" = "1" ]; then
+        log_warn "跳过前端构建（Node 不可用）。如已有 dist 可继续用旧前端"
+        return 0
+    fi
+
     log_step "构建前端应用..."
     
     cd /www/wwwroot/BaseUServer/baseu-admin || exit 1
@@ -247,21 +258,20 @@ build_frontend() {
     if npm install --registry=https://registry.npmmirror.com; then
         log_info "依赖安装完成"
     else
-        log_error "依赖安装失败"
-        exit 1
+        log_warn "依赖安装失败，跳过前端构建"
+        return 0
     fi
     
     # 构建
     if npm run build; then
         log_info "前端构建完成"
     else
-        log_error "前端构建失败"
-        exit 1
+        log_warn "前端构建失败，保留已有 dist（如有）"
+        return 0
     fi
     
     if [ ! -d "dist" ]; then
-        log_error "前端构建失败，未找到dist目录"
-        exit 1
+        log_warn "未找到 dist 目录，请本地构建后上传 baseu-admin/dist"
     fi
 }
 
