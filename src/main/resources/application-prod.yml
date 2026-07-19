@@ -21,19 +21,13 @@ jwt:
   expiration: ${JWT_EXPIRATION:7200000}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
-# 日志配置（绝对路径，避免宝塔工作目录在 target 下导致 logs 创建失败）
+# 日志配置（生产只打控制台，避免宝塔因日志目录权限导致进程秒退）
 logging:
   level:
     com.zero.baseu: INFO
-    org.springframework.boot: WARN
-  file:
-    path: /www/wwwroot/BaseUServer/logs
-    name: /www/wwwroot/BaseUServer/logs/baseu.log
-    max-size: 100MB
-    max-history: 30
+    org.springframework.boot: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
 # 生产环境标识
 app:

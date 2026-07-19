@@ -294,12 +294,24 @@ restart_backend() {
         fi
     fi
     
-    # 创建日志目录
-    mkdir -p /www/wwwroot/BaseUServer/logs
-    
-    # 启动新进程
+    # 启动新进程（输出到 logs/app.log，宝塔面板也可看项目日志）
     cd /www/wwwroot/BaseUServer
-    nohup java -jar target/baseu-server-1.0.0.jar --spring.profiles.active=prod > logs/app.log 2>&1 &
+    mkdir -p logs
+    # 明确指定 Java 17，避免宝塔/系统默认 Java 7
+    if [ -z "$JAVA_HOME" ] || ! "$JAVA_HOME/bin/java" -version 2>&1 | grep -Eq '"1[7-9]\.|\"2[0-9]\.'; then
+        for home in /www/server/java/jdk-17* /www/server/java/jdk-21*; do
+            if [ -x "$home/bin/java" ]; then
+                export JAVA_HOME="$home"
+                break
+            fi
+        done
+    fi
+    if [ -z "$JAVA_HOME" ] || [ ! -x "$JAVA_HOME/bin/java" ]; then
+        log_error "启动失败：未找到 Java 17+，请在宝塔安装 JDK 17"
+        exit 1
+    fi
+    log_info "启动使用 Java: $JAVA_HOME"
+    nohup "$JAVA_HOME/bin/java" -jar target/baseu-server-1.0.0.jar --spring.profiles.active=prod > logs/app.log 2>&1 &
     
     # 等待启动
     sleep 15
@@ -309,9 +321,10 @@ restart_backend() {
     
     if [ -n "$NEW_PID" ]; then
         log_info "后端服务启动成功 (PID: $NEW_PID)"
+        log_info "查看日志: tail -f /www/wwwroot/BaseUServer/logs/app.log"
     else
-        log_error "后端服务启动失败"
-        tail -n 50 logs/app.log
+        log_error "后端服务启动失败，最近日志如下："
+        tail -n 80 logs/app.log
         exit 1
     fi
 }
