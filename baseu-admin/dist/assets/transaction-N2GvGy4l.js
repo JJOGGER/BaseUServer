@@ -1,1 +1,0 @@
-import{r as a}from"./request-BBooHsx4.js";const r={getTransactionList:t=>a.get("/transaction/list",{params:t}),getAllTransactions:t=>a.get("/transaction/admin/list",{params:t}),createTransaction:t=>a.post("/transaction/admin/create",t),updateTransaction:t=>a.put("/transaction/admin/update",t),deleteTransaction:t=>a.delete(`/transaction/admin/delete/${t}`)};export{r as t};

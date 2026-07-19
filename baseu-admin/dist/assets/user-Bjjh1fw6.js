@@ -1,1 +1,0 @@
-import{r}from"./request-BBooHsx4.js";const s={getUserInfo:()=>r.get("/user/info"),changePassword:e=>r.put("/user/password",e),getUserList:e=>r.get("/user/admin/list",{params:e}),createUser:e=>r.post("/user/admin/create",e),updateUser:e=>r.put("/user/admin/update",e),deleteUser:e=>r.delete(`/user/admin/delete/${e}`)};export{s as u};

@@ -17,12 +17,6 @@
             登录
           </el-button>
         </el-form-item>
-        
-        <div class="login-footer">
-          <el-link type="primary" @click="handleImportWallet">
-            导入钱包
-          </el-link>
-        </div>
       </el-form>
     </div>
   </div>
@@ -65,10 +59,6 @@ const handleLogin = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const handleImportWallet = () => {
-  router.push('/mnemonic-input')
 }
 </script>
 
@@ -142,15 +132,5 @@ const handleImportWallet = () => {
 
 :deep(.el-input__inner::placeholder) {
   color: var(--text-tertiary);
-}
-
-.login-footer {
-  text-align: center;
-  margin-top: 16px;
-}
-
-.login-footer :deep(.el-link) {
-  color: var(--primary-color);
-  font-size: 14px;
 }
 </style>

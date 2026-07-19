@@ -8,16 +8,6 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/Login.vue')
   },
   {
-    path: '/mnemonic-input',
-    name: 'MnemonicInput',
-    component: () => import('@/views/MnemonicInput.vue')
-  },
-  {
-    path: '/mnemonic-confirm',
-    name: 'MnemonicConfirm',
-    component: () => import('@/views/MnemonicConfirm.vue')
-  },
-  {
     path: '/',
     name: 'Layout',
     component: () => import('@/views/Layout.vue'),
