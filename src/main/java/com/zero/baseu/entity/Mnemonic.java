@@ -12,11 +12,13 @@ public class Mnemonic {
     
     private String encryptedMnemonic;
     
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createdAt;
+    /** 与 MetaObjectHandler 的 createTime 对齐，列名保持 V5 的 created_at */
+    @TableField(value = "created_at", fill = FieldFill.INSERT)
+    private LocalDateTime createTime;
     
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedAt;
+    /** 与 MetaObjectHandler 的 updateTime 对齐，列名保持 V5 的 updated_at */
+    @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
+    private LocalDateTime updateTime;
     
     @TableLogic
     private Integer deleted;

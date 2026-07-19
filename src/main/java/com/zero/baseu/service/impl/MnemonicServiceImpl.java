@@ -1,21 +1,32 @@
 package com.zero.baseu.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.zero.baseu.common.BusinessException;
+import com.zero.baseu.common.ResultCode;
 import com.zero.baseu.entity.Mnemonic;
 import com.zero.baseu.mapper.MnemonicMapper;
 import com.zero.baseu.service.IMnemonicService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.time.LocalDateTime;
 
 @Service
 public class MnemonicServiceImpl extends ServiceImpl<MnemonicMapper, Mnemonic> implements IMnemonicService {
     
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void importMnemonic(String mnemonic) {
-        // 创建新助记词记录
+        if (!StringUtils.hasText(mnemonic)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "助记词不能为空");
+        }
+        
         Mnemonic newMnemonic = new Mnemonic();
-        newMnemonic.setEncryptedMnemonic(encryptMnemonic(mnemonic));
+        newMnemonic.setEncryptedMnemonic(encryptMnemonic(mnemonic.trim()));
+        newMnemonic.setCreateTime(LocalDateTime.now());
+        newMnemonic.setUpdateTime(LocalDateTime.now());
+        newMnemonic.setDeleted(0);
         save(newMnemonic);
     }
     

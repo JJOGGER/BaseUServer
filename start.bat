@@ -14,11 +14,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM 自动设置JAVA_HOME
-for /f "tokens=*" %%i in ('java -XshowSettings:properties -version 2^>^&1 ^| findstr "java.home"') do set JAVA_HOME_LINE=%%i
-for /f "tokens=2 delims==" %%i in ("%JAVA_HOME_LINE%") do set JAVA_HOME=%%i
-set JAVA_HOME=%JAVA_HOME: =%
-echo 自动设置JAVA_HOME: %JAVA_HOME%
+REM 自动设置JAVA_HOME / MAVEN_HOME
+set JAVA_HOME=C:\Program Files\Amazon Corretto\jdk17.0.19_10
+set MAVEN_HOME=C:\Program Files\Apache Maven Foundation\apache-maven-3.9.6
+echo 设置JAVA_HOME: %JAVA_HOME%
+echo 设置MAVEN_HOME: %MAVEN_HOME%
+set PATH=%JAVA_HOME%\bin;%MAVEN_HOME%\bin;%PATH%
 echo.
 
 REM 设置环境变量（默认为dev）
@@ -29,9 +30,20 @@ if "%SPRING_PROFILES_ACTIVE%"=="" (
 echo 当前环境: %SPRING_PROFILES_ACTIVE%
 echo.
 
-REM 选择启动方式
+REM 无参数时默认 Maven 编译并运行；也可传 1/2/3/4
+if "%~1"=="" (
+    set choice=1
+) else (
+    set choice=%~1
+)
+
+if "%choice%"=="1" goto maven_start
+if "%choice%"=="2" goto jar_start
+if "%choice%"=="3" goto docker_start
+if "%choice%"=="4" goto prod_start
+
 echo 请选择启动方式:
-echo 1) Maven 启动 (开发环境推荐)
+echo 1) Maven 编译并启动 (开发环境推荐)
 echo 2) JAR 包启动 (生产环境推荐)
 echo 3) Docker 启动
 echo 4) 切换到生产环境启动
@@ -48,9 +60,17 @@ exit /b 1
 
 :maven_start
 echo.
-echo 使用Maven启动 (环境: %SPRING_PROFILES_ACTIVE%)...
+echo [1/2] Maven 编译...
+call mvn clean compile -DskipTests
+if errorlevel 1 (
+    echo ❌ 编译失败
+    pause
+    exit /b 1
+)
 echo.
-mvn spring-boot:run -Dspring.profiles.active=%SPRING_PROFILES_ACTIVE%
+echo [2/2] Maven 启动 (环境: %SPRING_PROFILES_ACTIVE%)...
+echo.
+call mvn spring-boot:run "-Dspring-boot.run.profiles=%SPRING_PROFILES_ACTIVE%"
 goto end
 
 :jar_start
@@ -123,4 +143,3 @@ goto end
 
 :end
 pause
-
