@@ -5,6 +5,10 @@
 
 set -e
 
+cd "$(dirname "$0")"
+chmod 777 start.sh deploy.sh install-centos7-env.sh 2>/dev/null || true
+chmod 777 *.sh 2>/dev/null || true
+
 echo "========================================="
 echo "   CentOS 7 环境安装脚本"
 echo "========================================="

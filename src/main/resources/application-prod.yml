@@ -21,13 +21,14 @@ jwt:
   expiration: ${JWT_EXPIRATION:7200000}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
-# 日志配置
+# 日志配置（绝对路径，避免宝塔工作目录在 target 下导致 logs 创建失败）
 logging:
   level:
     com.zero.baseu: INFO
     org.springframework.boot: WARN
   file:
-    name: logs/baseu.log
+    path: /www/wwwroot/BaseUServer/logs
+    name: /www/wwwroot/BaseUServer/logs/baseu.log
     max-size: 100MB
     max-history: 30
   pattern:

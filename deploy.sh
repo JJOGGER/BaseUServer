@@ -5,6 +5,11 @@
 
 set +e  # 不在错误时立即退出，手动处理错误
 
+cd "$(dirname "$0")"
+# 拉代码后可能丢执行权限，启动时自动恢复
+chmod 777 start.sh deploy.sh install-centos7-env.sh release/start-prod.sh 2>/dev/null || true
+chmod 777 *.sh 2>/dev/null || true
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'

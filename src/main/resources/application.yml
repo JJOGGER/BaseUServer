@@ -3,7 +3,8 @@ spring:
     name: baseu-server
   
   profiles:
-    active: dev
+    # 宝塔默认走 prod；本地用 start.bat 会覆盖为 dev
+    active: ${SPRING_PROFILES_ACTIVE:prod}
   
   # 数据源配置
   datasource:

@@ -5,8 +5,8 @@ spring:
   # 数据源配置
   datasource:
     url: jdbc:mysql://localhost:3306/baseu?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: baseu
-    password: 4XAEeNCPMb24A57A
+    username: root
+    password: 666666
   
   # Redis配置
   data:
@@ -26,6 +26,7 @@ logging:
     com.zero.baseu: DEBUG
     org.springframework.boot.autoconfigure: INFO
   file:
+    path: logs
     name: logs/baseu-dev.log
 
 # 开发环境标识
